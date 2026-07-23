@@ -92,7 +92,7 @@ export async function validarComprobante(
 }
 
 export async function escanearQR(_qrData: string): Promise<Partial<Comprobante>> {
-  await simulateNetworkDelay();
+
   return {
     rucProveedor: "20512345678",
     razonSocial: "DISTRIBUIDORA LIMA NORTE EIRL",
