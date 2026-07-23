@@ -5,6 +5,7 @@
 import type { AutomaticValidation, Comprobante } from "@/types";
 import { validateRuc } from "@/utils";
 import { getMockSunatRucResponse } from "./mock-data";
+import type { Moneda } from "@/types";
 
 export interface SunatRucResponse {
   ruc: string;
@@ -143,7 +144,8 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
 
   const fecha = obtener("cbc:IssueDate");
 
-  const moneda = (obtener("cbc:DocumentCurrencyCode") || "PEN") as "PEN" | "USD"; 
+  const moneda: Moneda =
+  obtener("cbc:DocumentCurrencyCode") === "USD" ? "USD" : "PEN";
 
   const importe =
     Number(
@@ -165,8 +167,8 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
     fecha,
     importe,
     igv,
-    moneda,
-  };
+    moneda: moneda as Moneda,
+    };
 }
 
 export async function parsearPDF(file: File): Promise<Partial<Comprobante>> {
