@@ -54,7 +54,6 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
 export async function validarComprobante(
   comprobante: Comprobante
 ): Promise<AutomaticValidation> {
-  await simulateNetworkDelay();
 
   const rucData = await consultarRuc(comprobante.rucProveedor);
   const observaciones: string[] = [];
