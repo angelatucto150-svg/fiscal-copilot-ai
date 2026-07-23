@@ -221,3 +221,7 @@ export function parsearQR(qr: string) {
     fecha,
   };
 }
+
+function simulateNetworkDelay(ms = 500) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
