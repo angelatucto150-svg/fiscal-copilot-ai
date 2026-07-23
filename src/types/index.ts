@@ -169,3 +169,16 @@ export const SUBSTANTIAL_QUESTIONS = [
       "Además del comprobante de pago, debes contar con documentos que respalden la operación: orden de compra, guía de remisión, contrato, acta de conformidad, etc.",
   },
 ] as const;
+
+export interface ValidationResult {
+  regla: string;
+  estado: "success" | "warning" | "error";
+  mensaje: string;
+  recomendacion: string;
+}
+
+export interface ValidationSummary {
+  riesgo: RiskLevel;
+  score: number;
+  resultados: ValidationResult[];
+}

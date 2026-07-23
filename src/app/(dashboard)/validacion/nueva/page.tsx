@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PenLine,
@@ -17,12 +17,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ValidationSteps } from "@/components/validation/validation-steps";
+import { ValidationResult } from "@/components/validation/ValidationResult";
 import { useValidation } from "@/hooks/use-validation";
+import QRScanner from "@/components/validation/QRScanner";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { comprobanteSchema, type ComprobanteFormData } from "@/utils/validators";
-import { COMPROBANTE_TIPOS, type InputMethod } from "@/types";
-import { escanearQR, parsearXML, parsearPDF, parsearImagen } from "@/services/sunat.service";
+import { COMPROBANTE_TIPOS, type InputMethod, type Comprobante, type ValidationSummary } from "@/types";
+import {
+  parsearQR,
+  parsearXML,
+  parsearPDF,
+  parsearImagen,
+} from "@/services/sunat.service";
+import { ejecutarMotorValidacionTributaria } from "@/services/validation.service";
 import { toast } from "sonner";
 import { cn } from "@/utils";
 
@@ -39,12 +47,17 @@ export default function NuevaValidacionPage() {
   const { setInputMethod, setComprobante, setStep, state } = useValidation();
   const [selectedMethod, setSelectedMethod] = useState<InputMethod>(state.inputMethod);
   const [processing, setProcessing] = useState(false);
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
+  const [loadingExplicacion, setLoadingExplicacion] = useState(false);
+  const [explicacionIA, setExplicacionIA] = useState<string | null>(null);
+  const [errorExplicacion, setErrorExplicacion] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ComprobanteFormData>({
     resolver: zodResolver(comprobanteSchema),
@@ -61,6 +74,8 @@ export default function NuevaValidacionPage() {
     },
   });
 
+  const rucProveedor = watch("rucProveedor");
+  
   const handleMethodSelect = (method: InputMethod) => {
     setSelectedMethod(method);
     setInputMethod(method);
@@ -88,7 +103,11 @@ export default function NuevaValidacionPage() {
       }
 
       Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined) setValue(key as keyof ComprobanteFormData, value as never);
+        if (value !== undefined) setValue(key as keyof ComprobanteFormData, value as never, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true,
+        });
       });
       toast.success("Datos extraídos correctamente (simulado)");
     } catch {
@@ -98,26 +117,75 @@ export default function NuevaValidacionPage() {
     }
   };
 
-  const handleQRScan = async () => {
-    setProcessing(true);
-    try {
-      const data = await escanearQR("mock-qr-data");
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined) setValue(key as keyof ComprobanteFormData, value as never);
-      });
-      toast.success("QR escaneado correctamente (simulado)");
-    } catch {
-      toast.error("Error al escanear QR");
-    } finally {
-      setProcessing(false);
-    }
-  };
+
+  useEffect(() => {
+    const consultarRuc = async () => {
+      if (rucProveedor?.length !== 11) return;
+  
+      try {
+        const response = await fetch(
+          `/api/sunat/ruc?ruc=${rucProveedor}`
+        );
+  
+        if (!response.ok) return;
+  
+        const data = await response.json();
+  
+        setValue("razonSocial", data.razonSocial);
+  
+        toast.success("RUC validado correctamente");
+      } catch (error) {
+        console.error(error);
+      }
+    };
+  
+    consultarRuc();
+  }, [rucProveedor, setValue]);
 
   const onSubmit = (data: ComprobanteFormData) => {
     setComprobante({ ...data, inputMethod: selectedMethod });
     setStep(2);
     router.push("/validacion/automaticas");
   };
+
+  const solicitarExplicacionIA = async (summary: ValidationSummary) => {
+    setLoadingExplicacion(true);
+    setExplicacionIA(null);
+    setErrorExplicacion(false);
+
+    try {
+      const response = await fetch("/api/explicar-validacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(summary),
+      });
+
+      if (!response.ok) {
+        setErrorExplicacion(true);
+        return;
+      }
+
+      const data = await response.json();
+      setExplicacionIA(data.explicacion);
+    } catch {
+      setErrorExplicacion(true);
+    } finally {
+      setLoadingExplicacion(false);
+    }
+  };
+
+  const onValidar = handleSubmit((data) => {
+    const comprobante: Comprobante = {
+      ...data,
+      inputMethod: selectedMethod,
+    };
+    const summary = ejecutarMotorValidacionTributaria(comprobante);
+    setValidationSummary(summary);
+    setExplicacionIA(null);
+    setErrorExplicacion(false);
+    setLoadingExplicacion(true);
+    void solicitarExplicacionIA(summary);
+  });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -149,16 +217,34 @@ export default function NuevaValidacionPage() {
       </div>
 
       {selectedMethod === "qr" && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <QrCode className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground mb-4">Escaneo QR simulado — en producción usará la cámara del dispositivo</p>
-            <Button onClick={handleQRScan} disabled={processing}>
-              {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simular escaneo QR"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+  <Card>
+    <CardContent className="pt-6">
+    <QRScanner
+  onScanSuccess={(decodedText) => {
+    try {
+      const data = parsearQR(decodedText);
+
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined) {
+          setValue(key as keyof ComprobanteFormData, value as never);
+        }
+      });
+
+      toast.success("QR leído correctamente");
+
+      setSelectedMethod("manual");
+    } catch (error) {
+      console.error(error);
+      toast.error("QR inválido");
+    }
+  }}
+  onClose={() => {
+    setSelectedMethod("manual");
+  }}
+/>
+    </CardContent>
+  </Card>
+)}
 
       {(selectedMethod === "xml" || selectedMethod === "pdf" || selectedMethod === "imagen") && (
         <Card>
@@ -264,7 +350,10 @@ export default function NuevaValidacionPage() {
               <Input id="adjunto" type="file" accept=".pdf,.xml,image/*" />
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" size="lg" onClick={onValidar}>
+                Validar
+              </Button>
               <Button type="submit" size="lg">
                 Continuar <ArrowRight className="h-4 w-4" />
               </Button>
@@ -272,6 +361,45 @@ export default function NuevaValidacionPage() {
           </form>
         </CardContent>
       </Card>
+
+      {validationSummary && <ValidationResult summary={validationSummary} />}
+
+      {validationSummary && loadingExplicacion && (
+        <Card className="animate-fade-in">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              🤖 Analizando comprobante...
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="h-3 w-full rounded-md bg-muted animate-pulse" />
+            <div className="h-3 w-5/6 rounded-md bg-muted animate-pulse" />
+            <div className="h-3 w-4/6 rounded-md bg-muted animate-pulse" />
+          </CardContent>
+        </Card>
+      )}
+
+      {validationSummary && errorExplicacion && !loadingExplicacion && (
+        <Card className="animate-fade-in border-destructive/30">
+          <CardContent className="py-6">
+            <p className="text-sm text-muted-foreground">
+              No fue posible generar la explicación automática.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {validationSummary && explicacionIA && !loadingExplicacion && (
+        <Card className="animate-fade-in">
+          <CardHeader>
+            <CardTitle className="text-base">🤖 Análisis Inteligente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed whitespace-pre-line">{explicacionIA}</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

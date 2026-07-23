@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ValidationSteps } from "@/components/validation/validation-steps";
 import { RiskGauge, TrafficLight } from "@/components/validation/risk-gauge";
 import { useValidation } from "@/hooks/use-validation";
+import { useAuth } from "@/hooks/use-auth"; // <-- AGREGA ESTA LÍNEA
 import { calculateRiskScore, generateAIRecommendation } from "@/services/risk.service";
 import { saveValidation } from "@/services/validation.service";
 import type { Comprobante, RiskAssessment, AIRecommendation } from "@/types";
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 
 export default function RiesgoPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { state, setValidationId, setStep } = useValidation();
   const [risk, setRisk] = useState<RiskAssessment | null>(state.riskAssessment ?? null);
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(state.aiRecommendation ?? null);
@@ -45,12 +47,19 @@ export default function RiesgoPage() {
 
     setSaving(true);
     try {
-      const record = await saveValidation({
-        comprobante: { ...state.comprobante, inputMethod: state.inputMethod } as Comprobante,
-        automaticValidation: state.automaticValidation,
-        formalRequirements: state.formalRequirements,
-        substantialRequirements: state.substantialRequirements,
-      });
+      const record = await saveValidation(
+        {
+          comprobante: {
+            ...state.comprobante,
+            inputMethod: state.inputMethod,
+          } as Comprobante,
+          automaticValidation: state.automaticValidation,
+          formalRequirements: state.formalRequirements,
+          substantialRequirements: state.substantialRequirements,
+        },
+        user!.id
+      );
+    
       setValidationId(record.id);
       setStep(6);
       toast.success("Validación guardada correctamente");
@@ -59,7 +68,7 @@ export default function RiesgoPage() {
       toast.error("Error al guardar la validación");
     } finally {
       setSaving(false);
-    }
+    } 
   };
 
   if (!risk) {

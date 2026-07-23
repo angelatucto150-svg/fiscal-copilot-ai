@@ -318,6 +318,73 @@ export function getMockRucData(ruc: string) {
   );
 }
 
+/** Configuración Decolecta — token solo disponible en servidor (API routes). */
+export const APISPERU_RUC_URL = "https://dniruc.apisperu.com/api/v1/ruc";;
+
+export function getDecolectaApiToken(): string | undefined {
+  const token = process.env.DECOLECTA_API_TOKEN ?? process.env.APISPERU_TOKEN;
+  const trimmed = token?.trim();
+  return trimmed || undefined;
+}
+
+/** Headers según documentación oficial: Authorization Bearer + Accept + Content-Type */
+export function buildDecolectaHeaders(token: string): HeadersInit {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export interface DecolectaRucPayload {
+  razon_social?: string;
+  numero_documento?: string;
+  estado?: string;
+  condicion?: string;
+  tipo_facturacion?: string;
+}
+
+export interface MappedSunatRucResponse {
+  ruc: string;
+  razonSocial: string;
+  estado: "ACTIVO" | "INACTIVO";
+  condicion: "HABIDO" | "NO HABIDO";
+  emisorElectronico: boolean;
+}
+
+export function mapDecolectaRucResponse(
+  data: DecolectaRucPayload,
+  fallbackRuc: string
+): MappedSunatRucResponse {
+  const tipoFacturacion = (data.tipo_facturacion ?? "").toUpperCase();
+
+  return {
+    ruc: data.numero_documento ?? fallbackRuc,
+    razonSocial: data.razon_social ?? "SIN RAZON SOCIAL",
+    estado: data.estado === "ACTIVO" ? "ACTIVO" : "INACTIVO",
+    condicion: data.condicion === "HABIDO" ? "HABIDO" : "NO HABIDO",
+    emisorElectronico:
+      tipoFacturacion.includes("ELECTRON") || tipoFacturacion.includes("COMPUTARIZADO") || !tipoFacturacion,
+  };
+}
+
+export function getMockSunatRucResponse(ruc: string): MappedSunatRucResponse {
+  const mock = getMockRucData(ruc);
+  return {
+    ruc,
+    razonSocial: mock.razonSocial,
+    estado: mock.activo ? "ACTIVO" : "INACTIVO",
+    condicion: mock.habido ? "HABIDO" : "NO HABIDO",
+    emisorElectronico: mock.emisorElectronico,
+  };
+}
+
+export function isDecolectaLimitError(status: number, errorBody: string): boolean {
+  if (status === 429) return true;
+  const normalized = errorBody.toLowerCase();
+  return normalized.includes("limit exceeded") || normalized.includes("rate limit");
+}
+
 export function createMockFormalRequirements(): FormalRequirement[] {
   return [
     {

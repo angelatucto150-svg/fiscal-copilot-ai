@@ -13,12 +13,20 @@ export function formatCurrency(amount: number, moneda: string = "PEN"): string {
   }).format(amount);
 }
 
-export function formatDate(date: string): string {
+export function formatDate(date?: string): string {
+  if (!date) return "-";
+
+  const d = new Date(date);
+
+  if (isNaN(d.getTime())) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat("es-PE", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(d);
 }
 
 export function formatDateTime(date: string): string {

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import type { UserProfile } from "@/types";
 import { MOCK_USER } from "@/services/mock-data";
 import { STORAGE_KEYS, DEMO_CREDENTIALS } from "@/lib/constants";
+import { getSupabaseClient } from "@/lib/supabase";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -33,22 +34,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    await new Promise((r) => setTimeout(r, 600));
-    if (email === DEMO_CREDENTIALS.email && password === DEMO_CREDENTIALS.password) {
-      setUser(MOCK_USER);
-      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(MOCK_USER));
-      return true;
+    const supabase = getSupabaseClient();
+  
+    if (!supabase) {
+      console.error("Supabase no configurado");
+      return false;
     }
-    if (email && password.length >= 6) {
-      const demoUser = { ...MOCK_USER, email, id: `user-${Date.now()}` };
-      setUser(demoUser);
-      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(demoUser));
-      return true;
+  
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+  
+    if (error || !data.user) {
+      console.log("ERROR LOGIN:", error);
+      return false;
     }
-    return false;
+  
+    const userProfile: UserProfile = {
+      id: data.user.id,
+      email: data.user.email ?? "",
+      fullName:
+        data.user.user_metadata?.fullName ??
+        data.user.user_metadata?.name ??
+        "Usuario Fiscal Copilot",
+      role: "contador",
+      createdAt: data.user.created_at,
+    };
+  
+    setUser(userProfile);
+  
+    localStorage.setItem(
+      STORAGE_KEYS.user,
+      JSON.stringify(userProfile)
+    );
+  
+    return true;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const supabase = getSupabaseClient();
+  
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+  
     setUser(null);
     localStorage.removeItem(STORAGE_KEYS.user);
   }, []);

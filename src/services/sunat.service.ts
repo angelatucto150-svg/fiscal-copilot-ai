@@ -1,10 +1,10 @@
 /**
- * Servicio mock para consultas SUNAT.
- * Reemplazar por integración real con APIs permitidas de SUNAT.
+ * Servicio para consultas SUNAT vía Decolecta (proxy server-side).
+ * El token nunca se expone al cliente: las consultas pasan por /api/sunat/ruc.
  */
 import type { AutomaticValidation, Comprobante } from "@/types";
 import { validateRuc } from "@/utils";
-import { getMockRucData } from "./mock-data";
+import { getMockSunatRucResponse } from "./mock-data";
 
 export interface SunatRucResponse {
   ruc: string;
@@ -14,19 +14,41 @@ export interface SunatRucResponse {
   emisorElectronico: boolean;
 }
 
-export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
-  await simulateNetworkDelay();
+function getInternalRucApiUrl(ruc: string): string {
+  if (typeof window === "undefined") {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    return `${baseUrl}/api/sunat/ruc?ruc=${ruc}`;
+  }
+  return `/api/sunat/ruc?ruc=${ruc}`;
+}
 
-  const mockData = getMockRucData(ruc);
+export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
   const rucValido = validateRuc(ruc);
 
-  return {
-    ruc,
-    razonSocial: mockData.razonSocial,
-    estado: mockData.activo && rucValido ? "ACTIVO" : "INACTIVO",
-    condicion: mockData.habido ? "HABIDO" : "NO HABIDO",
-    emisorElectronico: mockData.emisorElectronico,
-  };
+  if (!rucValido) {
+    throw new Error("RUC inválido");
+  }
+
+  try {
+    const response = await fetch(getInternalRucApiUrl(ruc), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      return (await response.json()) as SunatRucResponse;
+    }
+
+    // Fallback mock si Decolecta falla (401 sin token, límite mensual, etc.)
+    if (response.status === 401 || response.status === 429 || response.status === 500) {
+      return getMockSunatRucResponse(ruc);
+    }
+
+    throw new Error("No se pudo consultar el RUC");
+  } catch {
+    return getMockSunatRucResponse(ruc);
+  }
 }
 
 export async function validarComprobante(
@@ -85,51 +107,117 @@ export async function escanearQR(_qrData: string): Promise<Partial<Comprobante>>
   };
 }
 
-export async function parsearXML(_file: File): Promise<Partial<Comprobante>> {
-  await simulateNetworkDelay();
+export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
+  
+  const xml = await file.text();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, "application/xml");
+  
+  console.log(doc.getElementsByTagName("cac:AccountingSupplierParty").length);
+  console.log(doc.getElementsByTagName("cbc:ID").length);
+
+  const obtener = (tag: string) =>
+    doc.getElementsByTagName(tag)[0]?.textContent?.trim() ?? "";
+
+  const supplier =
+  doc.getElementsByTagName("cac:AccountingSupplierParty")[0];
+
+  const rucProveedor =
+   supplier
+      ?.getElementsByTagName("cbc:ID")[0]
+      ?.textContent
+      ?.trim() ?? "";
+
+  const razonSocial =
+    obtener("cbc:RegistrationName") ||
+    obtener("cac:PartyLegalEntity cbc:RegistrationName");
+
+  const serieNumero = obtener("cbc:ID");
+
+  let serie = "";
+  let numero = "";
+
+  if (serieNumero.includes("-")) {
+    [serie, numero] = serieNumero.split("-");
+  }
+
+  const fecha = obtener("cbc:IssueDate");
+
+  const moneda = obtener("cbc:DocumentCurrencyCode") || "PEN";
+
+  const importe =
+    Number(
+      obtener("cbc:PayableAmount") ||
+      obtener("cbc:LineExtensionAmount")
+    ) || 0;
+
+  const igv =
+    Number(
+      obtener("cbc:TaxAmount")
+    ) || 0;
+
   return {
-    rucProveedor: "20100070970",
-    razonSocial: "SUPERMERCADOS PERUANOS S.A.",
+    rucProveedor,
+    razonSocial,
     tipoComprobante: "01",
-    serie: "F001",
-    numero: "00099887",
-    fecha: "2025-06-18",
-    importe: 3540,
-    igv: 540,
-    moneda: "PEN",
+    serie,
+    numero,
+    fecha,
+    importe,
+    igv,
+    moneda,
   };
 }
 
-export async function parsearPDF(_file: File): Promise<Partial<Comprobante>> {
-  await simulateNetworkDelay();
+export async function parsearPDF(file: File): Promise<Partial<Comprobante>> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/extraer-documento", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo leer el PDF.");
+  }
+
+  return await response.json();
+}
+
+export async function parsearImagen(file: File): Promise<Partial<Comprobante>> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/extraer-documento", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo leer la imagen.");
+  }
+
+  return await response.json();
+}
+
+export function parsearQR(qr: string) {
+  const partes = qr.split("|");
+
+  const [dia, mes, anio] = partes[6].split("/");
+
+  const fecha = `${anio}-${mes}-${dia}`;
+
+  console.log("Fecha QR:", fecha);
+
   return {
-    rucProveedor: "20654321098",
-    razonSocial: "TECNOLOGIA EMPRESARIAL PERU SAC",
-    tipoComprobante: "01",
-    serie: "E001",
-    numero: "00044556",
-    fecha: "2025-06-19",
-    importe: 2360,
-    igv: 360,
-    moneda: "PEN",
+    rucProveedor: partes[0],
+    tipoComprobante: partes[1],
+    serie: partes[2],
+    numero: partes[3],
+    igv: Number(partes[4]),
+    importe: Number(partes[5]),
+    fecha,
   };
-}
-
-export async function parsearImagen(_file: File): Promise<Partial<Comprobante>> {
-  await simulateNetworkDelay();
-  return {
-    rucProveedor: "20512345678",
-    razonSocial: "DISTRIBUIDORA LIMA NORTE EIRL",
-    tipoComprobante: "03",
-    serie: "B001",
-    numero: "00011223",
-    fecha: "2025-06-17",
-    importe: 118,
-    igv: 18,
-    moneda: "PEN",
-  };
-}
-
-function simulateNetworkDelay(ms = 800): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

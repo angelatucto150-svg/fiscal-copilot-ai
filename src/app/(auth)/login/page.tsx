@@ -26,7 +26,7 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: DEMO_CREDENTIALS.email, password: DEMO_CREDENTIALS.password },
+    defaultValues: { email: "", password: "" },
   });
 
   useEffect(() => {
@@ -108,12 +108,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 p-3 rounded-lg bg-muted/50 text-center">
-              <p className="text-xs text-muted-foreground">
-                Demo: <span className="font-mono">{DEMO_CREDENTIALS.email}</span> /{" "}
-                <span className="font-mono">{DEMO_CREDENTIALS.password}</span>
-              </p>
-            </div>
+
           </CardContent>
         </Card>
       </div>

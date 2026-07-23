@@ -70,6 +70,10 @@ export default function ResultadoPage() {
 
   const v = validation;
 
+  console.log("VALIDATION:", v);
+  console.log(v.aiRecommendation);
+  console.log(v.aiRecommendation?.recomendaciones);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -159,25 +163,27 @@ export default function ResultadoPage() {
         <Card className="border-primary/20">
           <CardHeader><CardTitle className="text-base">Recomendación del Copilot</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm">{v.aiRecommendation.resumen}</p>
+          <p className="text-sm">
+            {v.aiRecommendation?.resumen ?? "Sin recomendación disponible"}
+          </p>
             <Separator />
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Recomendaciones:</p>
               <ul className="space-y-1">
-                {v.aiRecommendation.recomendaciones.map((rec, i) => (
+              {(v.aiRecommendation?.recomendaciones ?? []).map((rec, i) => (
                   <li key={i} className="text-sm flex items-start gap-2">
                     <span className="text-primary font-bold">{i + 1}.</span> {rec}
                   </li>
                 ))}
               </ul>
             </div>
-            {v.aiRecommendation.documentosFaltantes.length > 0 && (
+            {(v.aiRecommendation?.documentosFaltantes ?? []).length > 0 && (
               <>
                 <Separator />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Documentos faltantes:</p>
                   <div className="flex flex-wrap gap-1">
-                    {v.aiRecommendation.documentosFaltantes.map((doc) => (
+                  {(v.aiRecommendation?.documentosFaltantes ?? []).map((doc) => (
                       <Badge key={doc} variant="outline">{doc}</Badge>
                     ))}
                   </div>
