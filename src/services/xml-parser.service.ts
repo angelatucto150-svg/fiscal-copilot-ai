@@ -1,4 +1,4 @@
-import { Comprobante } from "@/types/comprobante";
+import type { Comprobante } from "@/types";
 
 export async function parsearXMLSUNAT(
   file: File

@@ -143,7 +143,7 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
 
   const fecha = obtener("cbc:IssueDate");
 
-  const moneda = obtener("cbc:DocumentCurrencyCode") || "PEN";
+  const moneda = (obtener("cbc:DocumentCurrencyCode") || "PEN") as "PEN" | "USD"; 
 
   const importe =
     Number(
