@@ -167,8 +167,9 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
     fecha,
     importe,
     igv,
-    moneda: moneda as Moneda,
-    };
+    moneda,
+    inputMethod: "xml",
+  };
 }
 
 export async function parsearPDF(file: File): Promise<Partial<Comprobante>> {
