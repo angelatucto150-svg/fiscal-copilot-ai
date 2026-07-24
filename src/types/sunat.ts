@@ -159,7 +159,8 @@ export function construirResultadoValidacion(
   const valido = estado === "ACEPTADO" || estado === "AUTORIZADO";
 
   let riesgo: SunatRiesgoNivel = "BAJO";
-  if (!valido || estado === "ANULADO" || estado === "NO EXISTE") {
+
+  if (!valido) {
     riesgo = "ALTO";
   } else if (
     estadoRuc !== "ACTIVO" ||
