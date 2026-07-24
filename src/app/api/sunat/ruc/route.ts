@@ -38,6 +38,8 @@ export async function GET(request: Request) {
     );
 
     const data = await response.json();
+    
+    console.log("Respuesta APISPERU:", data);
 
     if (!response.ok) {
       return NextResponse.json(data, {
