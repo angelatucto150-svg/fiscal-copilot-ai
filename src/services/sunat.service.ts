@@ -1,6 +1,6 @@
 /**
  * Servicio de consultas SUNAT (capa de aplicación / cliente).
- * - RUC: proxy /api/sunat/ruc (APIsPeru u otro proveedor)
+ * - RUC: proxy /api/sunat/ruc (API real, sin mocks)
  * - Validez CPE: proxy /api/sunat/validar (API oficial SUNAT)
  * El token OAuth nunca se expone al cliente.
  */
@@ -11,7 +11,6 @@ import type {
 } from "@/types/sunat";
 import { validateRuc } from "@/utils";
 import { sunatLog } from "@/lib/sunat-logger";
-import { getMockSunatRucResponse } from "./mock-data";
 import type { Moneda } from "@/types";
 
 export interface SunatRucResponse {
@@ -40,6 +39,10 @@ function getInternalValidarApiUrl(): string {
   return `/api/sunat/validar`;
 }
 
+/**
+ * Consulta RUC únicamente vía /api/sunat/ruc (API real).
+ * Nunca devuelve datos ficticios: ante fallo lanza Error.
+ */
 export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
   const rucValido = validateRuc(ruc);
 
@@ -47,56 +50,62 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
     throw new Error("RUC inválido");
   }
 
-  // Controla el mock de RUC (expuesto al cliente vía next.config env)
-  const useRealApi = process.env.USE_REAL_API === "true";
+  const response = await fetch(getInternalRucApiUrl(ruc), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  let body: {
+    error?: string;
+    message?: string;
+    ruc?: string;
+    razonSocial?: string;
+    estado?: string;
+    condicion?: string;
+    emisorElectronico?: boolean;
+  } = {};
 
   try {
-    const response = await fetch(getInternalRucApiUrl(ruc), {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    if (response.ok) {
-      return (await response.json()) as SunatRucResponse;
-    }
-
-    // USE_REAL_API=false → mock ante 401 / 429 / 500
-    if (
-      !useRealApi &&
-      (response.status === 401 ||
-        response.status === 429 ||
-        response.status === 500)
-    ) {
-      return getMockSunatRucResponse(ruc);
-    }
-
-    // USE_REAL_API=true → devolver el error real (nunca mock)
-    let detail = "No se pudo consultar el RUC";
-    try {
-      const body = await response.json();
-      if (body?.error) detail = String(body.error);
-      else if (body?.message) detail = String(body.message);
-    } catch {
-      /* body no JSON */
-    }
-
-    throw new Error(`${detail} (${response.status})`);
-  } catch (error) {
-    if (error instanceof Error && error.message === "RUC inválido") {
-      throw error;
-    }
-
-    // USE_REAL_API=true → nunca mock
-    if (useRealApi) {
-      throw error instanceof Error
-        ? error
-        : new Error("No se pudo consultar el RUC");
-    }
-
-    // USE_REAL_API=false → comportamiento actual
-    return getMockSunatRucResponse(ruc);
+    body = await response.json();
+  } catch {
+    /* body no JSON */
   }
+
+  if (!response.ok) {
+    throw new Error(
+      body.error ||
+        body.message ||
+        `No se pudo consultar el RUC (${response.status})`
+    );
+  }
+
+  if (!body.razonSocial && !body.ruc) {
+    throw new Error("La consulta de RUC no devolvió datos válidos");
+  }
+
+  return {
+    ruc: body.ruc ?? ruc,
+    razonSocial: body.razonSocial ?? "",
+    estado: body.estado === "ACTIVO" ? "ACTIVO" : "INACTIVO",
+    condicion: body.condicion === "HABIDO" ? "HABIDO" : "NO HABIDO",
+    emisorElectronico: body.emisorElectronico ?? true,
+  };
+}
+
+/** Completa razón social desde la API real de RUC. */
+async function enriquecerConRucApi(
+  data: Partial<Comprobante>
+): Promise<Partial<Comprobante>> {
+  if (!data.rucProveedor || data.rucProveedor.length !== 11) {
+    return data;
+  }
+
+  const rucData = await consultarRuc(data.rucProveedor);
+  return {
+    ...data,
+    razonSocial: rucData.razonSocial,
+  };
 }
 
 /**
@@ -400,19 +409,14 @@ export async function validarComprobante(
   };
 }
 
-export async function escanearQR(_qrData: string): Promise<Partial<Comprobante>> {
-
-  return {
-    rucProveedor: "20512345678",
-    razonSocial: "DISTRIBUIDORA LIMA NORTE EIRL",
-    tipoComprobante: "01",
-    serie: "F001",
-    numero: "00088776",
-    fecha: new Date().toISOString().split("T")[0],
-    importe: 590,
-    igv: 90,
+export async function escanearQR(qrData: string): Promise<Partial<Comprobante>> {
+  const parsed = parsearQR(qrData);
+  return enriquecerConRucApi({
+    ...parsed,
+    tipoComprobante: (parsed.tipoComprobante as Comprobante["tipoComprobante"]) || "01",
     moneda: "PEN",
-  };
+    inputMethod: "qr",
+  });
 }
 
 /**
@@ -472,7 +476,7 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
       obtener("cbc:TaxAmount")
     ) || 0;
 
-  return {
+  return enriquecerConRucApi({
     rucProveedor,
     razonSocial,
     tipoComprobante: "01",
@@ -483,7 +487,7 @@ export async function parsearXML(file: File): Promise<Partial<Comprobante>> {
     igv,
     moneda,
     inputMethod: "xml",
-  };
+  });
 }
 
 export async function parsearPDF(file: File): Promise<Partial<Comprobante>> {
@@ -499,7 +503,8 @@ export async function parsearPDF(file: File): Promise<Partial<Comprobante>> {
     throw new Error("No se pudo leer el PDF.");
   }
 
-  return await response.json();
+  const data = (await response.json()) as Partial<Comprobante>;
+  return enriquecerConRucApi(data);
 }
 
 export async function parsearImagen(file: File): Promise<Partial<Comprobante>> {
@@ -515,7 +520,8 @@ export async function parsearImagen(file: File): Promise<Partial<Comprobante>> {
     throw new Error("No se pudo leer la imagen.");
   }
 
-  return await response.json();
+  const data = (await response.json()) as Partial<Comprobante>;
+  return enriquecerConRucApi(data);
 }
 
 export function parsearQR(qr: string) {
@@ -534,8 +540,4 @@ export function parsearQR(qr: string) {
     importe: Number(partes[5]),
     fecha,
   };
-}
-
-function simulateNetworkDelay(ms = 500) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

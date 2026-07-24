@@ -119,27 +119,32 @@ export default function NuevaValidacionPage() {
 
 
   useEffect(() => {
-    const consultarRuc = async () => {
+    const consultarRucApi = async () => {
       if (rucProveedor?.length !== 11) return;
-  
+
       try {
-        const response = await fetch(
-          `/api/sunat/ruc?ruc=${rucProveedor}`
-        );
-  
-        if (!response.ok) return;
-  
+        const response = await fetch(`/api/sunat/ruc?ruc=${rucProveedor}`);
         const data = await response.json();
-  
-        setValue("razonSocial", data.razonSocial);
-  
-        toast.success("RUC validado correctamente");
+
+        if (!response.ok) {
+          toast.error(data.error || "No se pudo consultar el RUC");
+          return;
+        }
+
+        if (data.razonSocial) {
+          setValue("razonSocial", data.razonSocial);
+          toast.success("RUC validado correctamente");
+        }
       } catch (error) {
-        console.error(error);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Error al consultar el RUC"
+        );
       }
     };
-  
-    consultarRuc();
+
+    void consultarRucApi();
   }, [rucProveedor, setValue]);
 
   const onSubmit = (data: ComprobanteFormData) => {
@@ -220,7 +225,7 @@ export default function NuevaValidacionPage() {
   <Card>
     <CardContent className="pt-6">
     <QRScanner
-  onScanSuccess={(decodedText) => {
+  onScanSuccess={async (decodedText) => {
     try {
       const data = parsearQR(decodedText);
 
@@ -229,6 +234,16 @@ export default function NuevaValidacionPage() {
           setValue(key as keyof ComprobanteFormData, value as never);
         }
       });
+
+      if (data.rucProveedor && data.rucProveedor.length === 11) {
+        const response = await fetch(`/api/sunat/ruc?ruc=${data.rucProveedor}`);
+        const rucData = await response.json();
+        if (!response.ok) {
+          toast.error(rucData.error || "No se pudo consultar el RUC del QR");
+        } else if (rucData.razonSocial) {
+          setValue("razonSocial", rucData.razonSocial);
+        }
+      }
 
       toast.success("QR leído correctamente");
 

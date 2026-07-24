@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ValidationSteps } from "@/components/validation/validation-steps";
 import { useValidation } from "@/hooks/use-validation";
-import { createMockSubstantialRequirements } from "@/services/mock-data";
+import { createSubstantialRequirements } from "@/lib/app-content";
 import { cn } from "@/utils";
 
 export default function RequisitosFormalesPage() {
@@ -17,7 +17,7 @@ export default function RequisitosFormalesPage() {
 
   const handleContinue = () => {
     if (!state.substantialRequirements) {
-      setSubstantialRequirements(createMockSubstantialRequirements());
+      setSubstantialRequirements(createSubstantialRequirements());
     }
     setStep(4);
     router.push("/validacion/sustanciales");

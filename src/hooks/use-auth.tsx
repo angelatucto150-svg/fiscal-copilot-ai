@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { UserProfile } from "@/types";
-import { MOCK_USER } from "@/services/mock-data";
-import { STORAGE_KEYS, DEMO_CREDENTIALS } from "@/lib/constants";
+import { STORAGE_KEYS } from "@/lib/constants";
 import { getSupabaseClient } from "@/lib/supabase";
 
 interface AuthContextType {

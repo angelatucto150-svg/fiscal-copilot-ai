@@ -7,14 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { MOCK_NOTIFICATIONS } from "@/services/mock-data";
+import { APP_NOTIFICATIONS } from "@/lib/app-content";
 import { useState } from "react";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
+  const unreadCount = APP_NOTIFICATIONS.filter((n) => !n.read).length;
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-md px-4 lg:px-8">
@@ -63,7 +63,7 @@ export function Header() {
                 <h3 className="font-semibold text-sm">Notificaciones</h3>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {MOCK_NOTIFICATIONS.map((notif) => (
+                {APP_NOTIFICATIONS.map((notif) => (
                   <div key={notif.id} className="p-3 border-b last:border-0 hover:bg-accent/50 transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium">{notif.title}</p>

@@ -3,10 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lightbulb } from "lucide-react";
-import { MOCK_TAX_TIPS } from "@/services/mock-data";
+import { TAX_TIPS } from "@/lib/app-content";
 
 export function TaxTipCard() {
-  const tip = MOCK_TAX_TIPS[0];
+  const tip = TAX_TIPS[0];
 
   return (
     <Card className="border-l-4 border-l-secondary animate-fade-in">

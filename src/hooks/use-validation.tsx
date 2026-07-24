@@ -10,7 +10,7 @@ import type {
   InputMethod,
 } from "@/types";
 import { STORAGE_KEYS } from "@/lib/constants";
-import { createMockSubstantialRequirements } from "@/services/mock-data";
+import { createSubstantialRequirements } from "@/lib/app-content";
 
 const initialState: ValidationWizardState = {
   step: 1,
@@ -79,7 +79,7 @@ export function ValidationProvider({ children }: { children: ReactNode }) {
   const updateSubstantialAnswer = useCallback((id: string, respuesta: SubstantialRequirement["respuesta"]) => {
     setState((prev) => ({
       ...prev,
-      substantialRequirements: (prev.substantialRequirements ?? createMockSubstantialRequirements()).map((req) =>
+      substantialRequirements: (prev.substantialRequirements ?? createSubstantialRequirements()).map((req) =>
         req.id === id ? { ...req, respuesta } : req
       ),
     }));
