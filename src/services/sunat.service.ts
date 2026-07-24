@@ -47,6 +47,7 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
     throw new Error("RUC inválido");
   }
 
+  // Controla el mock de RUC (expuesto al cliente vía next.config env)
   const useRealApi = process.env.USE_REAL_API === "true";
 
   try {
@@ -60,7 +61,7 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
       return (await response.json()) as SunatRucResponse;
     }
 
-    // USE_REAL_API=false → mock ante 401 / 429 / 500 (comportamiento histórico)
+    // USE_REAL_API=false → mock ante 401 / 429 / 500
     if (
       !useRealApi &&
       (response.status === 401 ||
@@ -70,7 +71,7 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
       return getMockSunatRucResponse(ruc);
     }
 
-    // USE_REAL_API=true → propagar el error real (nunca mock)
+    // USE_REAL_API=true → devolver el error real (nunca mock)
     let detail = "No se pudo consultar el RUC";
     try {
       const body = await response.json();
@@ -86,14 +87,14 @@ export async function consultarRuc(ruc: string): Promise<SunatRucResponse> {
       throw error;
     }
 
-    // USE_REAL_API=true → nunca mock; re-lanzar el error real
+    // USE_REAL_API=true → nunca mock
     if (useRealApi) {
       throw error instanceof Error
         ? error
         : new Error("No se pudo consultar el RUC");
     }
 
-    // USE_REAL_API=false → degradar a mock
+    // USE_REAL_API=false → comportamiento actual
     return getMockSunatRucResponse(ruc);
   }
 }

@@ -12,26 +12,34 @@ import { FiscalCopilotChat } from "@/components/validation/fiscal-copilot-chat";
 import { getValidationById } from "@/services/validation.service";
 import { generateValidationPDF } from "@/services/pdf.service";
 import type { ValidationRecord } from "@/types";
-import { formatCurrency, formatDate, getStatusColor, cn } from "@/utils";
+import { formatCurrency, formatDate, getStatusColor, cn, resolveRecommendations } from "@/utils";
 import { COMPROBANTE_TIPOS } from "@/types";
 import { useValidation } from "@/hooks/use-validation";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 export default function ResultadoPage() {
   const params = useParams();
   const router = useRouter();
   const { resetWizard } = useValidation();
+  const { user } = useAuth();
   const [validation, setValidation] = useState<ValidationRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     const id = params.id as string;
-    getValidationById(id).then((data) => {
+    if (!id || !user?.id) {
+      setValidation(null);
+      setLoading(false);
+      return;
+    }
+
+    getValidationById(id, user.id).then((data) => {
       setValidation(data);
       setLoading(false);
     });
-  }, [params.id]);
+  }, [params.id, user?.id]);
 
   const handleGeneratePDF = async () => {
     if (!validation) return;
@@ -39,8 +47,13 @@ export default function ResultadoPage() {
     try {
       await generateValidationPDF(validation);
       toast.success("Reporte PDF generado");
-    } catch {
-      toast.error("Error al generar PDF");
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      toast.error(
+        error instanceof Error
+          ? `Error al generar PDF: ${error.message}`
+          : "Error al generar PDF"
+      );
     } finally {
       setGeneratingPdf(false);
     }
@@ -69,6 +82,10 @@ export default function ResultadoPage() {
   }
 
   const v = validation;
+  const recommendation = resolveRecommendations(
+    v.aiRecommendation,
+    v.riskAssessment.nivel
+  );
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -159,27 +176,25 @@ export default function ResultadoPage() {
         <Card className="border-primary/20">
           <CardHeader><CardTitle className="text-base">Recomendación del Copilot</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-          <p className="text-sm">
-            {v.aiRecommendation?.resumen ?? "Sin recomendación disponible"}
-          </p>
+            <p className="text-sm">{recommendation.resumen}</p>
             <Separator />
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Recomendaciones:</p>
               <ul className="space-y-1">
-              {(v.aiRecommendation?.recomendaciones ?? []).map((rec, i) => (
+                {recommendation.recomendaciones.map((rec, i) => (
                   <li key={i} className="text-sm flex items-start gap-2">
                     <span className="text-primary font-bold">{i + 1}.</span> {rec}
                   </li>
                 ))}
               </ul>
             </div>
-            {(v.aiRecommendation?.documentosFaltantes ?? []).length > 0 && (
+            {recommendation.documentosFaltantes.length > 0 && (
               <>
                 <Separator />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Documentos faltantes:</p>
                   <div className="flex flex-wrap gap-1">
-                  {(v.aiRecommendation?.documentosFaltantes ?? []).map((doc) => (
+                    {recommendation.documentosFaltantes.map((doc) => (
                       <Badge key={doc} variant="outline">{doc}</Badge>
                     ))}
                   </div>

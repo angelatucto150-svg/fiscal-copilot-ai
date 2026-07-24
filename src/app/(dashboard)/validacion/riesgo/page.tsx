@@ -45,6 +45,11 @@ export default function RiesgoPage() {
   const handleFinish = async () => {
     if (!state.automaticValidation || !state.formalRequirements || !state.substantialRequirements || !risk) return;
 
+    if (!user?.id) {
+      toast.error("Debes iniciar sesión para guardar la validación");
+      return;
+    }
+
     setSaving(true);
     try {
       const record = await saveValidation(
@@ -57,7 +62,7 @@ export default function RiesgoPage() {
           formalRequirements: state.formalRequirements,
           substantialRequirements: state.substantialRequirements,
         },
-        user!.id
+        user.id
       );
     
       setValidationId(record.id);

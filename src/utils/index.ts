@@ -57,6 +57,78 @@ export function getRiskTrafficLight(puntaje: number): RiskTrafficLight {
   return "rojo";
 }
 
+/** Recomendaciones locales por nivel de riesgo (sin llamar a la IA). */
+export function getLocalRecommendationsByRisk(nivel: RiskLevel): {
+  resumen: string;
+  recomendaciones: string[];
+} {
+  if (nivel === "bajo") {
+    return {
+      resumen:
+        "El comprobante presenta riesgo bajo. Puede proceder con el registro contable conservando el sustento digital.",
+      recomendaciones: [
+        "Registrar normalmente el comprobante.",
+        "Conservar XML y CDR.",
+      ],
+    };
+  }
+
+  if (nivel === "medio") {
+    return {
+      resumen:
+        "El comprobante presenta riesgo moderado. Revise el sustento antes de registrar el crédito fiscal.",
+      recomendaciones: [
+        "Revisar sustento de la operación.",
+        "Verificar datos del proveedor.",
+        "Confirmar requisitos para crédito fiscal.",
+      ],
+    };
+  }
+
+  return {
+    resumen:
+      "El comprobante presenta riesgo alto. No se recomienda registrar hasta resolver las observaciones.",
+    recomendaciones: [
+      "No registrar el comprobante.",
+      "Revisar documentación.",
+      "Validar nuevamente en SUNAT.",
+      "Solicitar documentación adicional al proveedor.",
+    ],
+  };
+}
+
+/**
+ * Usa recomendaciones existentes del análisis/IA.
+ * Si faltan, aplica recomendaciones locales según el nivel de riesgo.
+ */
+export function resolveRecommendations(
+  aiRecommendation:
+    | {
+        resumen?: string;
+        recomendaciones?: string[];
+        documentosFaltantes?: string[];
+      }
+    | null
+    | undefined,
+  nivel: RiskLevel
+): {
+  resumen: string;
+  recomendaciones: string[];
+  documentosFaltantes: string[];
+} {
+  const local = getLocalRecommendationsByRisk(nivel);
+  const existing = (aiRecommendation?.recomendaciones ?? []).filter(
+    (r) => typeof r === "string" && r.trim().length > 0
+  );
+
+  return {
+    resumen:
+      aiRecommendation?.resumen?.trim() || local.resumen,
+    recomendaciones: existing.length > 0 ? existing : local.recomendaciones,
+    documentosFaltantes: aiRecommendation?.documentosFaltantes ?? [],
+  };
+}
+
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     aprobado: "text-success bg-success/10 border-success/20",

@@ -66,26 +66,100 @@ interface TrafficLightProps {
   className?: string;
 }
 
-export function TrafficLight({ semaforo, className }: TrafficLightProps) {
-  const lights: RiskTrafficLight[] = ["rojo", "amarillo", "verde"];
+const TRAFFIC_LIGHTS: RiskTrafficLight[] = ["rojo", "amarillo", "verde"];
 
+const TRAFFIC_LABELS: Record<RiskTrafficLight, string> = {
+  verde: "RIESGO BAJO",
+  amarillo: "RIESGO MODERADO",
+  rojo: "RIESGO ALTO",
+};
+
+const TRAFFIC_LABEL_COLOR: Record<RiskTrafficLight, string> = {
+  verde: "text-green-600 dark:text-green-400",
+  amarillo: "text-amber-600 dark:text-amber-400",
+  rojo: "text-red-600 dark:text-red-400",
+};
+
+export function TrafficLight({ semaforo, className }: TrafficLightProps) {
   return (
-    <div className={cn("flex flex-col items-center gap-2 p-4 rounded-xl border bg-card", className)}>
-      <p className="text-xs font-medium text-muted-foreground mb-1">Semáforo de Riesgo</p>
-      <div className="flex flex-col gap-2 p-3 rounded-lg bg-muted/50">
-        {lights.map((light) => (
-          <div
-            key={light}
-            className={cn(
-              "h-8 w-8 rounded-full border-2 transition-all duration-500",
-              light === "rojo" && semaforo === "rojo" && "bg-red-500 border-red-600 shadow-lg shadow-red-500/50 scale-110",
-              light === "amarillo" && semaforo === "amarillo" && "bg-yellow-400 border-yellow-500 shadow-lg shadow-yellow-400/50 scale-110",
-              light === "verde" && semaforo === "verde" && "bg-green-500 border-green-600 shadow-lg shadow-green-500/50 scale-110",
-              light !== semaforo && "bg-muted border-muted-foreground/20 opacity-40"
-            )}
-          />
-        ))}
+    <div
+      className={cn(
+        "flex flex-col items-center gap-3 p-4 rounded-2xl border bg-card shadow-sm",
+        className
+      )}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Semáforo de Riesgo
+      </p>
+
+      <div className="flex items-stretch gap-2">
+        {/* Cuerpo del semáforo */}
+        <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-zinc-900 dark:bg-zinc-950 p-3.5 shadow-inner border border-zinc-700/80">
+          <div className="pointer-events-none absolute inset-x-2 top-2 h-8 rounded-full bg-gradient-to-b from-white/10 to-transparent" />
+
+          {TRAFFIC_LIGHTS.map((light) => {
+            const isActive = light === semaforo;
+
+            return (
+              <div
+                key={light}
+                className={cn(
+                  "relative h-10 w-10 rounded-full transition-all duration-500 ease-out",
+                  !isActive &&
+                    "bg-zinc-800 border-2 border-zinc-600/60 opacity-45 scale-95",
+                  isActive &&
+                    light === "rojo" &&
+                    "bg-red-500 border-2 border-red-300 scale-105 shadow-[0_0_16px_4px_rgba(239,68,68,0.75),0_0_32px_8px_rgba(239,68,68,0.35)]",
+                  isActive &&
+                    light === "amarillo" &&
+                    "bg-amber-400 border-2 border-amber-200 scale-105 shadow-[0_0_16px_4px_rgba(251,191,36,0.8),0_0_32px_8px_rgba(251,191,36,0.35)]",
+                  isActive &&
+                    light === "verde" &&
+                    "bg-emerald-500 border-2 border-emerald-300 scale-105 shadow-[0_0_16px_4px_rgba(16,185,129,0.75),0_0_32px_8px_rgba(16,185,129,0.35)]"
+                )}
+              >
+                <div
+                  className={cn(
+                    "absolute top-1.5 left-1.5 h-3 w-3 rounded-full transition-opacity duration-500",
+                    isActive ? "bg-white/50 opacity-100" : "bg-white/10 opacity-40"
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Flecha alineada fila a fila con cada foco */}
+        <div className="flex flex-col justify-between py-3.5 w-5" aria-hidden>
+          {TRAFFIC_LIGHTS.map((light) => {
+            const isActive = light === semaforo;
+
+            return (
+              <div key={light} className="flex h-10 items-center justify-start">
+                <div
+                  className={cn(
+                    "h-0 w-0 border-y-[7px] border-y-transparent border-r-[10px] transition-all duration-500 ease-out",
+                    isActive ? "opacity-100 scale-100" : "opacity-0 scale-75",
+                    isActive && light === "rojo" && "border-r-red-500",
+                    isActive && light === "amarillo" && "border-r-amber-400",
+                    isActive && light === "verde" && "border-r-emerald-500",
+                    !isActive && "border-r-transparent"
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      <p
+        className={cn(
+          "text-xs font-bold tracking-widest transition-colors duration-500",
+          TRAFFIC_LABEL_COLOR[semaforo]
+        )}
+      >
+        {TRAFFIC_LABELS[semaforo]}
+      </p>
     </div>
   );
 }

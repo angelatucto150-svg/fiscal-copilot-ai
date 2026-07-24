@@ -6,6 +6,18 @@ export const loginSchema = z.object({
   remember: z.boolean().optional(),
 });
 
+export const registerSchema = z
+  .object({
+    fullName: z.string().min(2, "Ingresa tu nombre completo"),
+    email: z.string().email("Ingresa un correo válido"),
+    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+    confirmPassword: z.string().min(6, "Confirma tu contraseña"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Ingresa un correo válido"),
 });
@@ -33,6 +45,7 @@ export const profileSchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
+export type RegisterFormData = z.infer<typeof registerSchema>;
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 export type ComprobanteFormData = z.infer<typeof comprobanteSchema>;
 export type ProfileFormData = z.infer<typeof profileSchema>;
