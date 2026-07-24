@@ -63,8 +63,6 @@ export async function getValidations(userId?: string): Promise<ValidationRecord[
       const { data, error } = await query;
 
       if (error) {
-        console.log(error);
-        console.dir(error);
         throw error;
       }
 
@@ -150,8 +148,6 @@ export async function saveValidation(
   
         if (error) {
           console.error("INSERT ERROR:", error);
-        } else {
-          console.log("✅ Registro guardado:", data);
         }
     }
   } 

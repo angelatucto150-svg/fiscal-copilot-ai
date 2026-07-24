@@ -44,8 +44,12 @@ export default function ValidacionesAutomaticasPage() {
 
         const formal = evaluateFormalRequirements(validation, true);
         setFormalRequirements(formal);
-      } catch {
-        toast.error("Error al ejecutar validaciones");
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Error al ejecutar validaciones";
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -68,7 +72,7 @@ export default function ValidacionesAutomaticasPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Validaciones Automáticas</h1>
-        <p className="text-muted-foreground text-sm">Consulta simulada — reemplazable por API SUNAT</p>
+        <p className="text-muted-foreground text-sm">Consulta oficial de validez del comprobante ante SUNAT</p>
       </div>
 
       <ValidationSteps currentStep={2} />
@@ -77,7 +81,7 @@ export default function ValidacionesAutomaticasPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-            <p className="text-sm text-muted-foreground">Consultando datos del proveedor...</p>
+            <p className="text-sm text-muted-foreground">Consultando validez del comprobante en SUNAT...</p>
           </CardContent>
         </Card>
       ) : (

@@ -70,10 +70,6 @@ export default function ResultadoPage() {
 
   const v = validation;
 
-  console.log("VALIDATION:", v);
-  console.log(v.aiRecommendation);
-  console.log(v.aiRecommendation?.recomendaciones);
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

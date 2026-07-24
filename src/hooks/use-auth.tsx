@@ -47,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   
     if (error || !data.user) {
-      console.log("ERROR LOGIN:", error);
       return false;
     }
   
